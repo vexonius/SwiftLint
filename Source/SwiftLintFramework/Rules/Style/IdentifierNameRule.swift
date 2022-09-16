@@ -2,9 +2,9 @@ import Foundation
 import SourceKittenFramework
 
 public struct IdentifierNameRule: ASTRule, ConfigurationProviderRule {
-    public var configuration = NameConfiguration(minLengthWarning: 3,
+    public var configuration = NameConfiguration(minLengthWarning: 2,
                                                  minLengthError: 2,
-                                                 maxLengthWarning: 40,
+                                                 maxLengthWarning: 50,
                                                  maxLengthError: 60,
                                                  excluded: ["id"])
 
