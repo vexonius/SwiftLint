@@ -212,6 +212,7 @@ public let primaryRuleList = RuleList(rules: [
     VerticalWhitespaceClosingBracesRule.self,
     VerticalWhitespaceOpeningBracesRule.self,
     VerticalWhitespaceRule.self,
+    ViewControllerFileLengthRule.self,
     VoidFunctionInTernaryConditionRule.self,
     VoidReturnRule.self,
     WeakDelegateRule.self,
