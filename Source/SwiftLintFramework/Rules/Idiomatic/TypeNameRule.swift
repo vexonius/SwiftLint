@@ -4,7 +4,7 @@ import SourceKittenFramework
 public struct TypeNameRule: ASTRule, ConfigurationProviderRule {
     public var configuration = NameConfiguration(minLengthWarning: 3,
                                                  minLengthError: 0,
-                                                 maxLengthWarning: 40,
+                                                 maxLengthWarning: 50,
                                                  maxLengthError: 1000)
 
     public init() {}
