@@ -118,6 +118,7 @@ public let primaryRuleList = RuleList(rules: [
     NSLocalizedStringRequireBundleRule.self,
     NSObjectPreferIsEqualRule.self,
     NestingRule.self,
+    NewLineAfterDefinitionBracesRule.self,
     NimbleOperatorRule.self,
     NoExtensionAccessModifierRule.self,
     NoFallthroughOnlyRule.self,
