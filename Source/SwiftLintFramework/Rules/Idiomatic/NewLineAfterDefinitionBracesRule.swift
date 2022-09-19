@@ -1,4 +1,5 @@
 import SourceKittenFramework
+import Foundation
 
 public struct NewLineAfterDefinitionBracesRule: ASTRule, ConfigurationProviderRule {
 
@@ -57,18 +58,28 @@ public struct NewLineAfterDefinitionBracesRule: ASTRule, ConfigurationProviderRu
             let bodyOffset = dictionary.bodyOffset
         else { return [] }
 
-        let twoLinesLength: ByteCount = 2
-        let range = ByteRange(location: bodyOffset, length: twoLinesLength)
-
-        guard
-            let contents = file.stringView.substringWithByteRange(range),
-            contents.trimmingCharacters(in: .whitespaces).isNotEmpty
-        else { return [] }
+        guard containsOpeningBraceViolation(in: file, offset: bodyOffset) else { return [] }
 
         return [
             StyleViolation(
                 ruleDescription: NewLineAfterDefinitionBracesRule.description,
                 location: Location(file: file, byteOffset: bodyOffset))]
+    }
+    
+}
+
+extension NewLineAfterDefinitionBracesRule {
+
+    func containsOpeningBraceViolation(in file: SwiftLintFile, offset: ByteCount) -> Bool {
+        let twoLinesLength: ByteCount = 2
+        let matchingPattern = "\n\n"
+        let range = ByteRange(location: offset, length: twoLinesLength)
+
+        guard let nsRange = file.stringView.byteRangeToNSRange(range) else { return false }
+
+        let matches = file.match(pattern: matchingPattern, range: nsRange)
+
+        return matches.isEmpty
     }
 
 }

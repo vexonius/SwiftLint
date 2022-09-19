@@ -1,7 +1,7 @@
 import SourceKittenFramework
 import Foundation
 
-struct NewLineBeforeDefinitionBracesRule: ASTRule, ConfigurationProviderRule {
+public struct NewLineBeforeDefinitionBracesRule: ASTRule, ConfigurationProviderRule {
 
     public var configuration = SeverityConfiguration(.warning)
 
