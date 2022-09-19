@@ -119,6 +119,7 @@ public let primaryRuleList = RuleList(rules: [
     NSObjectPreferIsEqualRule.self,
     NestingRule.self,
     NewLineAfterDefinitionBracesRule.self,
+    NewLineBeforeDefinitionBracesRule.self,
     NimbleOperatorRule.self,
     NoExtensionAccessModifierRule.self,
     NoFallthroughOnlyRule.self,
