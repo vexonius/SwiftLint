@@ -94,3 +94,16 @@ extension SwiftLintFile: Hashable {
         hasher.combine(id)
     }
 }
+
+extension SwiftLintFile {
+
+    func lineCountWithoutComments() -> Int {
+        let commentKinds = SyntaxKind.commentKinds
+        let lineCount = self.syntaxKindsByLines.filter { kinds in
+            return !Set(kinds).isSubset(of: commentKinds)
+        }.count
+
+        return lineCount
+    }
+
+}
