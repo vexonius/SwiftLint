@@ -21,13 +21,9 @@ public struct FileLengthRule: ConfigurationProviderRule {
     )
 
     public func validate(file: SwiftLintFile) -> [StyleViolation] {
-        func lineCountWithoutComments() -> Int {
-            let commentKinds = SyntaxKind.commentKinds
-            let lineCount = file.syntaxKindsByLines.filter { kinds in
-                return !Set(kinds).isSubset(of: commentKinds)
-            }.count
-            return lineCount
-        }
+        let isViewController = file.structureDictionary.isViewController()
+
+        guard !isViewController else { return [] }
 
         var lineCount = file.lines.count
         let hasViolation = configuration.severityConfiguration.params.contains {
@@ -35,7 +31,7 @@ public struct FileLengthRule: ConfigurationProviderRule {
         }
 
         if hasViolation && configuration.ignoreCommentOnlyLines {
-            lineCount = lineCountWithoutComments()
+            lineCount = file.lineCountWithoutComments()
         }
 
         for parameter in configuration.severityConfiguration.params where lineCount > parameter.value {

@@ -1,6 +1,6 @@
 import SourceKittenFramework
 
-public struct ViewControllerFileLengthRule: ASTRule, ConfigurationProviderRule {
+public struct ViewControllerFileLengthRule: ConfigurationProviderRule {
     public var configuration = FileLengthRuleConfiguration(warning: 400, error: 1000)
 
     private let viewControllerPattern = "ViewController"
@@ -22,20 +22,10 @@ public struct ViewControllerFileLengthRule: ASTRule, ConfigurationProviderRule {
         ].skipWrappingInCommentTests()
     )
 
-    public func validate(
-        file: SwiftLintFile,
-        kind: SwiftDeclarationKind,
-        dictionary: SourceKittenDictionary
-    ) -> [StyleViolation] {
+    public func validate(file: SwiftLintFile) -> [StyleViolation] {
+        let isViewController = file.structureDictionary.isViewController()
 
-        guard
-            dictionary.declarationKind == .class,
-            dictionary.inheritedTypes.isNotEmpty
-        else {
-            return []
-        }
-
-        guard inheritsViewController(inheritedTypes: dictionary.inheritedTypes) else { return [] }
+        guard isViewController else { return [] }
 
         var lineCount = file.lines.count
         let hasViolation = configuration.severityConfiguration.params.contains {
@@ -43,7 +33,7 @@ public struct ViewControllerFileLengthRule: ASTRule, ConfigurationProviderRule {
         }
 
         if hasViolation && configuration.ignoreCommentOnlyLines {
-            lineCount = lineCountWithoutComments(file: file)
+            lineCount = file.lineCountWithoutComments()
         }
 
         for parameter in configuration.severityConfiguration.params where lineCount > parameter.value {
@@ -59,24 +49,4 @@ public struct ViewControllerFileLengthRule: ASTRule, ConfigurationProviderRule {
 
         return []
     }
-}
-
-
-extension ViewControllerFileLengthRule {
-
-    func lineCountWithoutComments(file: SwiftLintFile) -> Int {
-        let commentKinds = SyntaxKind.commentKinds
-        let lineCount = file.syntaxKindsByLines.filter { kinds in
-            return !Set(kinds).isSubset(of: commentKinds)
-        }.count
-
-        return lineCount
-    }
-
-    func inheritsViewController(inheritedTypes: [String]) -> Bool {
-        inheritedTypes
-            .map { $0.contains(viewControllerPattern) }
-            .reduce(false) { $0 || $1 }
-    }
-
 }

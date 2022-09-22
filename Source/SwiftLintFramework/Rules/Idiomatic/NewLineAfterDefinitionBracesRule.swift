@@ -58,7 +58,7 @@ public struct NewLineAfterDefinitionBracesRule: ASTRule, ConfigurationProviderRu
             let bodyOffset = dictionary.bodyOffset
         else { return [] }
 
-        guard containsOpeningBraceViolation(in: file, offset: bodyOffset) else { return [] }
+        guard !containsOpeningBraceViolation(in: file, offset: bodyOffset) else { return [] }
 
         return [
             StyleViolation(
@@ -74,12 +74,9 @@ extension NewLineAfterDefinitionBracesRule {
         let twoLinesLength: ByteCount = 2
         let matchingPattern = "\n\n"
         let range = ByteRange(location: offset, length: twoLinesLength)
+        let newLineRangeContents = file.stringView.substringWithByteRange(range)
 
-        guard let nsRange = file.stringView.byteRangeToNSRange(range) else { return false }
-
-        let matches = file.match(pattern: matchingPattern, range: nsRange)
-
-        return matches.isEmpty
+        return newLineRangeContents == matchingPattern
     }
 
 }
