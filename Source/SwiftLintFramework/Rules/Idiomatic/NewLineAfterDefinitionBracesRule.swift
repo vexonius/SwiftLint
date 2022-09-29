@@ -65,7 +65,7 @@ public struct NewLineAfterDefinitionBracesRule: ASTRule, ConfigurationProviderRu
                 ruleDescription: NewLineAfterDefinitionBracesRule.description,
                 location: Location(file: file, byteOffset: bodyOffset))]
     }
-    
+
 }
 
 extension NewLineAfterDefinitionBracesRule {

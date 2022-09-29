@@ -3,8 +3,6 @@ import SourceKittenFramework
 public struct ViewControllerFileLengthRule: ConfigurationProviderRule {
     public var configuration = FileLengthRuleConfiguration(warning: 400, error: 1000)
 
-    private let viewControllerPattern = "ViewController"
-
     public init() {}
 
     public static let description = RuleDescription(
@@ -36,15 +34,22 @@ public struct ViewControllerFileLengthRule: ConfigurationProviderRule {
             lineCount = file.lineCountWithoutComments()
         }
 
-        for parameter in configuration.severityConfiguration.params where lineCount > parameter.value {
-            let reason = "ViewController file should contain \(configuration.severityConfiguration.warning)" +
-                "lines or less" + (configuration.ignoreCommentOnlyLines ? " excluding comments and whitespaces" : "") +
-                ": currently contains \(lineCount)"
+        let match = configuration
+            .severityConfiguration
+            .params
+            .first(where: { $0.value < lineCount })
 
-            return [StyleViolation(ruleDescription: Self.description,
-                                   severity: parameter.severity,
-                                   location: Location(file: file.path, line: file.lines.count),
-                                   reason: reason)]
+        if let match {
+            let reason = "ViewController file should contain \(configuration.severityConfiguration.warning)" +
+            " lines or less" + (configuration.ignoreCommentOnlyLines ? " excluding comments and whitespaces" : "")
+            + ": currently contains \(lineCount)"
+
+            return [
+                StyleViolation(
+                    ruleDescription: Self.description,
+                    severity: match.severity,
+                    location: Location(file: file.path, line: file.lines.count),
+                    reason: reason)]
         }
 
         return []
