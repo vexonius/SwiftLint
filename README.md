@@ -38,11 +38,33 @@ This is a forked version of SwiftLint tool enforcing swift code style preference
    .build/release/swiftlint lint
    ```
 
+## Running on CI
+
+### Using compiled binary
+
+Simplest and most convenient way is using a prebuilt binary form Manual installatiuon steps above. Push it to you remote repo and add it to .gitignore afterwards. Then you can use the bash script below for intermediate steo
+
+``` bash
+#!/usr/bin/env bash
+
+brew tap vexonius/five-swiftlint
+brew install five-swiftlint
+five-swiftlint lint --strict
+result=$?
+if [ "$result" = "2" ] || [ "$result" = "3" ]
+then
+    exit -1
+else
+    exit 0
+fi
+```
+
+
 ## Contribution
 
 1. git clone `https://github.com/realm/SwiftLint.git`
 2. `cd SwiftLint`
-3. `xed .` (XCode Command Line Tools have to be installed as well)
+3. `xed .` (Xcode Command Line Tools have to be installed as well)
 4. Select the `'swiftlint'` scheme
 5. `Press cmd + option + R` open the scheme options
 6. Set the "Arguments Passed On Launch" you want in the "Arguments" tab. For list of possible arguments, you can pass --help command when running swiftlint in Terminal. Default mode is lint. 
@@ -57,7 +79,7 @@ Whenever possible, prefer adding tests via the `triggeringExamples` and `nonTrig
 
 ## Rule configuration
 
-If your rule supports user-configurable options via `.swiftlint.yml`, you can accomplish this by conforming to `ConfigurationProviderRule`. You must provide a configuration object via the `configuration` property:
+If you want your rule to be configurable in `.swiftlint.yml`, your rule needs to conform to `ConfigurationProviderRule` protocol and have `configuration` property:
 
 * The object provided must conform to `RuleConfiguration`.
 * There are several provided `RuleConfiguration`s that cover the common patterns like
@@ -104,12 +126,15 @@ If your rule is configurable, but does not fit the pattern of `ConfigurationProv
   
 ## Benchmark
 
-| Run  | swiftlint | custom | swiftlint --no-cache | custom --no-cache |
-| :--- | :-------: | :----: | :------------------: | :---------------: |
-| 1.   |   5.012   | 5.054  |        4.825         |       4.986       |
-| 2.   |   1.279   | 0.616  |        4.675         |       5.013       |
-| 3.   |   0.700   | 0.625  |        4.680         |       4.933       |
-| 4.   |   0.675   | 0.622  |        4.684         |       4.947       |
-| 5.   |   0.682   | 0.613  |        4.832         |       5.049       |
+| Run  | swiftlint (vanilla) | fork  | swiftlint (custom regex) --no-cache | swiftlint --no-cache | fork --no-cache |
+| :--- | :-----------------: | :---: | :---------------------------------: | :------------------: | :-------------: |
+| 1.   |        5.012        | 5.054 |               33.643                |        4.825         |      4.986      |
+| 2.   |        1.279        | 0.616 |               32.561                |        4.675         |      5.013      |
+| 3.   |        0.700        | 0.625 |               32.253                |        4.680         |      4.933      |
+| 4.   |        0.675        | 0.622 |               32.745                |        4.684         |      4.947      |
+| 5.   |        0.682        | 0.613 |               32.447                |        4.832         |      5.049      |
+| avg. |        1.670        | 1.506 |               32.732                |        4.739         |      4.986      |
+
+Note: fork config has 4 new custom rules added to default list (newline after opening brace, newline before opening brace, viewcontroller length & file length)
 
 Custom SwiftLint fork found 4020 violations, 411 serious in 3369 files while vanilla SwiftLint with custom regex found 3624 violations, 413 serious in 3369 files.
