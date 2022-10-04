@@ -39,19 +39,18 @@ public struct ViewControllerFileLengthRule: ConfigurationProviderRule {
             .params
             .first(where: { $0.value < lineCount })
 
-        if let match {
-            let reason = "ViewController file should contain \(configuration.severityConfiguration.warning)" +
-            " lines or less" + (configuration.ignoreCommentOnlyLines ? " excluding comments and whitespaces" : "")
-            + ": currently contains \(lineCount)"
+        guard let match = match else { return [] }
 
-            return [
-                StyleViolation(
-                    ruleDescription: Self.description,
-                    severity: match.severity,
-                    location: Location(file: file.path, line: file.lines.count),
-                    reason: reason)]
-        }
+        let reason = "ViewController file should contain \(configuration.severityConfiguration.warning)" +
+        " lines or less" + (configuration.ignoreCommentOnlyLines ? " excluding comments and whitespaces" : "")
+        + ": currently contains \(lineCount)"
 
-        return []
+        return [
+            StyleViolation(
+                ruleDescription: Self.description,
+                severity: match.severity,
+                location: Location(file: file.path, line: file.lines.count),
+                reason: reason)]
     }
+
 }
