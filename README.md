@@ -8,9 +8,9 @@ This is a forked version of SwiftLint tool enforcing swift code style preference
 
 1. Make sure you have [Homebrew](https://brew.sh/) installed
 2. Tap forked swiftlint repo
-  ```
-  brew tap vexonius/five-swiftlint
-  ```
+   ```
+   brew tap vexonius/five-swiftlint
+   ```
 3. Install forked swiftlint
    ```
    brew install vexonius/five-swiftlint
@@ -35,14 +35,29 @@ This is a forked version of SwiftLint tool enforcing swift code style preference
    ```
 4. Navigate to a project with swiftlint config and run
    ```
-   .build/release/swiftlint lint
+   path/to/.build/release/swiftlint lint
    ```
 
 ## Running on CI
 
 ### Using compiled binary
 
-Simplest and most convenient way is using a prebuilt binary form Manual installatiuon steps above. Push it to you remote repo and add it to .gitignore afterwards. Then you can use the bash script below for intermediate steo
+Simplest and most convenient way is using a prebuilt binary form Manual installation steps above. Push it to you remote repo and add it to .gitignore afterwards. Then you can use the bash script below for intermediate build step replacing relative path of pushed binary:
+
+``` bash
+#!/usr/bin/env bash
+
+relative/path/to/five-swiftlint lint --no-cache --strict
+result=$?
+if [ "$result" = "2" ] || [ "$result" = "3" ]
+then
+    exit -1
+else
+    exit 0
+fi
+```
+
+If your CI/CI environment supports Homebrew, you can fetch five-swiftlint from FIVE's tap repository using script below:
 
 ``` bash
 #!/usr/bin/env bash
@@ -59,6 +74,39 @@ else
 fi
 ```
 
+### Bitrise
+
+For Bitrise integration, create a new script step and paste the contents one of the scripts above, depending on your preference.
+
+### Xcode Cloud
+
+Xcode cloud supports custom build scripts as well, but runs them at a specific moment between steps. The name of a custom script’s corresponding file determines when Xcode Cloud runs the script:\
+`ci_post_clone.sh` -> Runs after repository cloning\
+`ci_pre_xcodebuild.sh` -> Runs before building project\
+`ci_post_xcodebuild.sh` -> Runs after project has been built\
+
+Create `ci_scripts` directory in the root directory of your Xcode project and create either post clone script file `ci_post_clone.sh` or prebuild script file `ci_pre_xcodebuild.sh`. 
+
+As Xcode cloud doesn't run scripts in workspace/project directory, we have to pass CI_WORKSPACE environment variable as source files directory path to lint:
+
+``` bash
+#!/bin/sh
+export PATH="$PATH:/usr/local/bin"
+
+brew tap vexonius/five-swiftlint
+brew install five-swiftlint
+five-swiftlint lint $CI_WORKSPACE --strict
+result=$?
+if [ "$result" = "2" ] || [ "$result" = "3" ]
+then
+    exit -1
+else
+    exit 0
+fi
+
+```
+IMPORTANT! 
+In Terminal, make the shell script an executable by running `chmod +x filename.sh`. Without this step script will not work!
 
 ## Contribution
 
@@ -112,7 +160,7 @@ identifier_name:
 
 If your rule is configurable, but does not fit the pattern of `ConfigurationProviderRule`, you can conform directly to `Rule`:
 
-* `init(configuration: AnyObject) throws` will be passed the result of parsing the
+* `init(configuration: AnyObject) throws` will be passed as the result of parsing the
   value from `.swiftlint.yml` associated with your rule's `identifier` as a key
   (if present).
 * `configuration` may be of any type supported by YAML (e.g. `Int`, `String`, `Array`,
