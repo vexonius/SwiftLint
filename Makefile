@@ -9,10 +9,10 @@ XCODEFLAGS=-scheme 'swiftlint' \
 SWIFT_BUILD_FLAGS=--configuration release -Xlinker -dead_strip
 UNAME=$(shell uname)
 
-SWIFTLINT_EXECUTABLE_X86=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch x86_64 --show-bin-path)/swiftlint
-SWIFTLINT_EXECUTABLE_ARM64=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch arm64 --show-bin-path)/swiftlint
+SWIFTLINT_EXECUTABLE_X86=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch x86_64 --show-bin-path)/five-swiftlint
+SWIFTLINT_EXECUTABLE_ARM64=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch arm64 --show-bin-path)/five-swiftlint
 SWIFTLINT_EXECUTABLE_PARENT=.build/universal
-SWIFTLINT_EXECUTABLE=$(SWIFTLINT_EXECUTABLE_PARENT)/swiftlint
+SWIFTLINT_EXECUTABLE=$(SWIFTLINT_EXECUTABLE_PARENT)/five-swiftlint
 
 ARTIFACT_BUNDLE_PATH=$(TEMPORARY_FOLDER)/SwiftLintBinary.artifactbundle
 
