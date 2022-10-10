@@ -1,9 +1,10 @@
+#if canImport(Darwin)
+import Darwin
+#endif
 import Foundation
 import SourceKittenFramework
+import SwiftParser
 import SwiftSyntax
-#if canImport(SwiftSyntaxParser)
-import SwiftSyntaxParser
-#endif
 
 private let warnSyntaxParserFailureOnceImpl: Void = {
     queuedPrintError("Could not parse the syntax tree for at least one file. Results may be invalid.")
@@ -38,7 +39,7 @@ private var structureDictionaryCache = Cache({ file in
 
 private var syntaxTreeCache = Cache({ file -> SourceFileSyntax? in
     do {
-        return try SyntaxParser.parse(source: file.contents)
+        return try Parser.parse(source: file.contents)
     } catch {
         warnSyntaxParserFailureOnce()
         return nil
@@ -68,19 +69,19 @@ private var assertHandlers = [FileCacheKey: AssertHandler]()
 private var assertHandlerCache = Cache({ file in assertHandlers[file.cacheKey] })
 
 private struct RebuildQueue {
-    private let lock = NSLock()
+    private let lock = PlatformLock()
     private var queue = [Structure]()
 
     mutating func append(_ structure: Structure) {
-        lock.lock()
-        defer { lock.unlock() }
-        queue.append(structure)
+        lock.doLocked {
+            queue.append(structure)
+        }
     }
 
     mutating func clear() {
-        lock.lock()
-        defer { lock.unlock() }
-        queue.removeAll(keepingCapacity: false)
+        lock.doLocked {
+            queue.removeAll(keepingCapacity: false)
+        }
     }
 }
 
@@ -89,7 +90,7 @@ private var queueForRebuild = RebuildQueue()
 private class Cache<T> {
     private var values = [FileCacheKey: T]()
     private let factory: (SwiftLintFile) -> T
-    private let lock = NSLock()
+    private let lock = PlatformLock()
 
     fileprivate init(_ factory: @escaping (SwiftLintFile) -> T) {
         self.factory = factory
@@ -97,36 +98,30 @@ private class Cache<T> {
 
     fileprivate func get(_ file: SwiftLintFile) -> T {
         let key = file.cacheKey
-        lock.lock()
-        defer { lock.unlock() }
-        if let cachedValue = values[key] {
-            return cachedValue
+        return lock.doLocked {
+            if let cachedValue = values[key] {
+                return cachedValue
+            }
+            let value = factory(file)
+            values[key] = value
+            return value
         }
-        let value = factory(file)
-        values[key] = value
-        return value
     }
 
     fileprivate func invalidate(_ file: SwiftLintFile) {
-        doLocked { values.removeValue(forKey: file.cacheKey) }
+        lock.doLocked { values.removeValue(forKey: file.cacheKey) }
     }
 
     fileprivate func clear() {
-        doLocked { values.removeAll(keepingCapacity: false) }
+        lock.doLocked { values.removeAll(keepingCapacity: false) }
     }
 
     fileprivate func set(key: FileCacheKey, value: T) {
-        doLocked { values[key] = value }
+        lock.doLocked { values[key] = value }
     }
 
     fileprivate func unset(key: FileCacheKey) {
-        doLocked { values.removeValue(forKey: key) }
-    }
-
-    private func doLocked(block: () -> Void) {
-        lock.lock()
-        block()
-        lock.unlock()
+        lock.doLocked { values.removeValue(forKey: key) }
     }
 }
 
@@ -157,20 +152,26 @@ extension SwiftLintFile {
         }
     }
 
-    internal var parserDiagnostics: [[String: SourceKitRepresentable]]? {
+    internal var parserDiagnostics: [String]? {
         if parserDiagnosticsDisabledForTests {
             return nil
         }
 
-        guard let response = responseCache.get(self) else {
+        guard let syntaxTree = syntaxTree else {
             if let handler = assertHandler {
                 handler()
                 return nil
             }
-            queuedFatalError("Never call this for file that sourcekitd fails.")
+            queuedFatalError("Could not get diagnostics for file.")
         }
 
-        return response["key.diagnostics"] as? [[String: SourceKitRepresentable]]
+        return ParseDiagnosticsGenerator.diagnostics(for: syntaxTree)
+            .filter { $0.diagMessage.severity == .error }
+            .map(\.message)
+            .filter { message in
+                // Workaround for https://github.com/apple/swift-syntax/issues/888
+                return !message.starts(with: "unexpected text '.?.")
+            }
     }
 
     internal var structure: Structure {
@@ -260,5 +261,33 @@ extension SwiftLintFile {
         syntaxKindsByLinesCache.clear()
         syntaxTreeCache.clear()
         commandsCache.clear()
+    }
+}
+
+private final class PlatformLock {
+#if canImport(Darwin)
+    private let primitiveLock: UnsafeMutablePointer<os_unfair_lock>
+#else
+    private let primitiveLock = NSLock()
+#endif
+
+    init() {
+#if canImport(Darwin)
+        primitiveLock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
+        primitiveLock.initialize(to: os_unfair_lock())
+#endif
+    }
+
+    @discardableResult
+    func doLocked<U>(_ closure: () -> U) -> U {
+#if canImport(Darwin)
+        os_unfair_lock_lock(primitiveLock)
+        defer { os_unfair_lock_unlock(primitiveLock) }
+        return closure()
+#else
+        primitiveLock.lock()
+        defer { primitiveLock.unlock() }
+        return closure()
+#endif
     }
 }

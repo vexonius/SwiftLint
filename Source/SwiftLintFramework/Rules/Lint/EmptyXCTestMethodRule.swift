@@ -15,7 +15,7 @@ public struct EmptyXCTestMethodRule: OptInRule, ConfigurationProviderRule, Swift
     )
 
     public func makeVisitor(file: SwiftLintFile) -> ViolationsSyntaxVisitor? {
-        EmptyXCTestMethodRuleVisitor()
+        EmptyXCTestMethodRuleVisitor(viewMode: .sourceAccurate)
     }
 }
 
@@ -35,6 +35,10 @@ private final class EmptyXCTestMethodRuleVisitor: SyntaxVisitor, ViolationsSynta
     }
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        .skipChildren
+    }
+
+    override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
         .skipChildren
     }
 

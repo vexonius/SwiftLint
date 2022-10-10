@@ -41,15 +41,15 @@ private extension SwiftLintFile {
     }
 }
 
-extension String {
+public extension String {
     func stringByAppendingPathComponent(_ pathComponent: String) -> String {
         return bridge().appendingPathComponent(pathComponent)
     }
 }
 
-let allRuleIdentifiers = Set(primaryRuleList.list.keys)
+public let allRuleIdentifiers = Set(primaryRuleList.list.keys)
 
-extension Configuration {
+public extension Configuration {
     func applyingConfiguration(from example: Example) -> Configuration {
         guard let exampleConfiguration = example.configuration,
            case let .only(onlyRules) = self.rulesMode,
@@ -60,8 +60,8 @@ extension Configuration {
     }
 }
 
-func violations(_ example: Example, config inputConfig: Configuration = Configuration.default,
-                requiresFileOnDisk: Bool = false) -> [StyleViolation] {
+public func violations(_ example: Example, config inputConfig: Configuration = Configuration.default,
+                       requiresFileOnDisk: Bool = false) -> [StyleViolation] {
     SwiftLintFile.clearCaches()
     let config = inputConfig.applyingConfiguration(from: example)
     let stringStrippingMarkers = example.removingViolationMarkers()
@@ -79,7 +79,7 @@ func violations(_ example: Example, config inputConfig: Configuration = Configur
     return linter.styleViolations(using: storage).withoutFiles()
 }
 
-extension Collection where Element == String {
+public extension Collection where Element == String {
     func violations(config: Configuration = Configuration.default, requiresFileOnDisk: Bool = false)
         -> [StyleViolation] {
             return map { SwiftLintFile.testFile(withContents: $0, persistToDisk: requiresFileOnDisk) }
@@ -92,7 +92,7 @@ extension Collection where Element == String {
     }
 }
 
-extension Collection where Element: SwiftLintFile {
+public extension Collection where Element: SwiftLintFile {
     func violations(config: Configuration = Configuration.default, requiresFileOnDisk: Bool = false)
         -> [StyleViolation] {
             let storage = RuleStorage()
@@ -141,7 +141,7 @@ private extension Collection where Element == Correction {
     }
 }
 
-extension Collection where Element == Example {
+public extension Collection where Element == Example {
     /// Returns a dictionary with SwiftLint violation markers (↓) removed from keys.
     ///
     /// - returns: A new `Array`.
@@ -223,13 +223,18 @@ private extension Configuration {
                 corrections.count,
                 expectedLocations.count,
                 #function + ".expected locations: \(expectedLocations.count)",
-                file: before.file, line: before.line)
-            for (correction, expectedLocation) in zip(corrections, expectedLocations) {
+                file: before.file, line: before.line
+            )
+            // With SwiftSyntax rewriters, the visitors get called with the new nodes after previous mutations have
+            // been applied, so it's not straightforward to translate those back into the original source positions.
+            // So only check the first locations
+            if let firstCorrection = corrections.first {
                 XCTAssertEqual(
-                    correction.location,
-                    expectedLocation,
+                    firstCorrection.location,
+                    expectedLocations.first,
                     #function + ".correction location",
-                    file: before.file, line: before.line)
+                    file: before.file, line: before.line
+                )
             }
         }
         XCTAssertEqual(
@@ -259,8 +264,8 @@ private extension String {
     }
 }
 
-internal func makeConfig(_ ruleConfiguration: Any?, _ identifier: String,
-                         skipDisableCommandTests: Bool = false) -> Configuration? {
+public func makeConfig(_ ruleConfiguration: Any?, _ identifier: String,
+                       skipDisableCommandTests: Bool = false) -> Configuration? {
     let superfluousDisableCommandRuleIdentifier = SuperfluousDisableCommandRule.description.identifier
     let identifiers: Set<String> = skipDisableCommandTests ? [identifier]
         : [identifier, superfluousDisableCommandRuleIdentifier]
@@ -309,7 +314,7 @@ private func addShebang(_ example: Example) -> Example {
     return example.with(code: "#!/usr/bin/env swift\n\(example.code)")
 }
 
-extension XCTestCase {
+public extension XCTestCase {
     var isRunningWithBazel: Bool { FileManager.default.currentDirectoryPath.contains("bazel-out") }
 
     func verifyRule(_ ruleDescription: RuleDescription,

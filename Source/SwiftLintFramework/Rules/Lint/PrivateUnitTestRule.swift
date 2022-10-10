@@ -1,25 +1,7 @@
 import Foundation
-import SourceKittenFramework
+import SwiftSyntax
 
-private extension SourceKittenDictionary {
-    var superclass: String? {
-        guard declarationKind == .class,
-            let className = inheritedTypes.first else { return nil }
-        return className
-    }
-
-    var parameters: [SourceKittenDictionary] {
-        return substructure.filter { dict in
-            guard let kind = dict.declarationKind else {
-                return false
-            }
-
-            return kind == .varParameter
-        }
-    }
-}
-
-public struct PrivateUnitTestRule: ASTRule, ConfigurationProviderRule, CacheDescriptionProvider {
+public struct PrivateUnitTestRule: SwiftSyntaxCorrectableRule, ConfigurationProviderRule, CacheDescriptionProvider {
     public var configuration: PrivateUnitTestConfiguration = {
         var configuration = PrivateUnitTestConfiguration(identifier: "private_unit_test")
         configuration.message = "Unit test marked `private` will not be run by XCTest."
@@ -40,7 +22,7 @@ public struct PrivateUnitTestRule: ASTRule, ConfigurationProviderRule, CacheDesc
         kind: .lint,
         nonTriggeringExamples: [
             Example("""
-            "class FooTest: XCTestCase {
+            class FooTest: XCTestCase {
                 func test1() {}
                 internal func test2() {}
                 public func test3() {}
@@ -63,8 +45,8 @@ public struct PrivateUnitTestRule: ASTRule, ConfigurationProviderRule, CacheDesc
             Example("""
             @objc private class FooTest: XCTestCase {
                 @objc private func test1() {}
-                    internal func test2() {}
-                    public func test3() {}
+                internal func test2() {}
+                public func test3() {}
             }
             """),
             // Non-test classes
@@ -82,10 +64,13 @@ public struct PrivateUnitTestRule: ASTRule, ConfigurationProviderRule, CacheDesc
                 public func test3() {}
             }
             """),
-            // Methods with params
+            // Non-test methods
             Example("""
             public class FooTest: XCTestCase {
-                func test1(param: Int) {}
+                private func test1(param: Int) {}
+                private func test2() -> String { "" }
+                private func atest() {}
+                private static func test3() {}
             }
             """)
         ],
@@ -93,88 +78,236 @@ public struct PrivateUnitTestRule: ASTRule, ConfigurationProviderRule, CacheDesc
             Example("""
             private ↓class FooTest: XCTestCase {
                 func test1() {}
-                    internal func test2() {}
-                    public func test3() {}
-                    private func test4() {}
+                internal func test2() {}
+                public func test3() {}
+                private func test4() {}
             }
             """),
             Example("""
             class FooTest: XCTestCase {
                 func test1() {}
-                    internal func test2() {}
-                    public func test3() {}
-                    private ↓func test4() {}
+                internal func test2() {}
+                public func test3() {}
+                private ↓func test4() {}
             }
             """),
             Example("""
             internal class FooTest: XCTestCase {
                 func test1() {}
-                    internal func test2() {}
-                    public func test3() {}
-                    private ↓func test4() {}
+                internal func test2() {}
+                public func test3() {}
+                private ↓func test4() {}
             }
             """),
             Example("""
             public class FooTest: XCTestCase {
                 func test1() {}
-                    internal func test2() {}
-                    public func test3() {}
-                    private ↓func test4() {}
+                internal func test2() {}
+                public func test3() {}
+                private ↓func test4() {}
             }
             """)
+        ],
+        corrections: [
+            Example("""
+
+                ↓private class Test: XCTestCase {}
+                """): Example("""
+
+                    class Test: XCTestCase {}
+                    """),
+            Example("""
+                class Test: XCTestCase {
+
+                    ↓private func test1() {}
+                    private func test2(i: Int) {}
+                    @objc private func test3() {}
+                    internal func test4() {}
+                }
+                """): Example("""
+                    class Test: XCTestCase {
+
+                        func test1() {}
+                        private func test2(i: Int) {}
+                        @objc private func test3() {}
+                        internal func test4() {}
+                    }
+                    """)
         ]
     )
 
-    public func validate(file: SwiftLintFile, kind: SwiftDeclarationKind,
-                         dictionary: SourceKittenDictionary) -> [StyleViolation] {
-        guard kind == .class && isTestClass(dictionary) else { return [] }
+    public func makeVisitor(file: SwiftLintFile) -> ViolationsSyntaxVisitor? {
+        Visitor(parentClassRegex: configuration.regex)
+    }
 
-        /* It's not strictly necessary to check for `private` on classes because a
-         private class will result in `private` on all its members in the AST.
-         However, it's still useful to check the class explicitly because this
-         gives us a more clear error message. If we check only methods, the line
-         number of the error will be that of the function, which may not
-         necessarily be marked `private` but inherited it from the class access
-         modifier. By checking the class we ensure the line nuber we report for
-         the violation will match the line that must be edited.
-         */
+    public func makeRewriter(file: SwiftLintFile) -> ViolationsSyntaxRewriter? {
+        file.locationConverter.map { locationConverter in
+            Rewriter(
+                parentClassRegex: configuration.regex,
+                locationConverter: locationConverter,
+                disabledRegions: disabledRegions(file: file)
+            )
+        }
+    }
+}
 
-        let classViolations = validateAccessControlLevel(file: file, dictionary: dictionary)
-        guard classViolations.isEmpty else { return classViolations }
+private class Visitor: SyntaxVisitor, ViolationsSyntaxVisitor {
+    private(set) var violationPositions: [AbsolutePosition] = []
+    private let parentClassRegex: NSRegularExpression
 
-        return dictionary.substructure.flatMap { subDict -> [StyleViolation] in
-            return validateFunction(file: file, dictionary: subDict)
+    init(parentClassRegex: NSRegularExpression) {
+        self.parentClassRegex = parentClassRegex
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        !node.isPrivate && node.hasParent(matching: parentClassRegex) ? .visitChildren : .skipChildren
+    }
+
+    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+        .skipChildren
+    }
+
+    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        .skipChildren
+    }
+
+    override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        .skipChildren
+    }
+
+    override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
+        .skipChildren
+    }
+
+    override func visitPost(_ node: ClassDeclSyntax) {
+        if node.isPrivate, node.hasParent(matching: parentClassRegex) {
+            violationPositions.append(node.classKeyword.positionAfterSkippingLeadingTrivia)
         }
     }
 
-    private func isTestClass(_ dictionary: SourceKittenDictionary) -> Bool {
-        guard let regex = configuration.regex, let superclass = dictionary.superclass else {
+    override func visitPost(_ node: FunctionDeclSyntax) {
+        if node.isTestMethod, node.isPrivate {
+            violationPositions.append(node.funcKeyword.positionAfterSkippingLeadingTrivia)
+        }
+    }
+}
+
+private class Rewriter: SyntaxRewriter, ViolationsSyntaxRewriter {
+    private(set) var correctionPositions: [AbsolutePosition] = []
+    private let parentClassRegex: NSRegularExpression
+    let locationConverter: SourceLocationConverter
+    let disabledRegions: [SourceRange]
+
+    init(parentClassRegex: NSRegularExpression,
+         locationConverter: SourceLocationConverter,
+         disabledRegions: [SourceRange]) {
+        self.parentClassRegex = parentClassRegex
+        self.locationConverter = locationConverter
+        self.disabledRegions = disabledRegions
+    }
+
+    override func visit(_ node: ClassDeclSyntax) -> DeclSyntax {
+        guard node.isPrivate, node.hasParent(matching: parentClassRegex) else {
+            return super.visit(node)
+        }
+
+        let isInDisabledRegion = disabledRegions.contains { region in
+            region.contains(node.positionAfterSkippingLeadingTrivia, locationConverter: locationConverter)
+        }
+
+        guard !isInDisabledRegion else {
+            return super.visit(node)
+        }
+
+        correctionPositions.append(node.positionAfterSkippingLeadingTrivia)
+        let (modifiers, declKeyword) = withoutPrivate(modifiers: node.modifiers, declKeyword: node.classKeyword)
+        return super.visit(node.withModifiers(modifiers).withClassKeyword(declKeyword))
+    }
+
+    override func visit(_ node: FunctionDeclSyntax) -> DeclSyntax {
+        guard node.isTestMethod, node.isPrivate else {
+            return super.visit(node)
+        }
+
+        let isInDisabledRegion = disabledRegions.contains { region in
+            region.contains(node.positionAfterSkippingLeadingTrivia, locationConverter: locationConverter)
+        }
+
+        guard !isInDisabledRegion else {
+            return super.visit(node)
+        }
+
+        correctionPositions.append(node.positionAfterSkippingLeadingTrivia)
+        let (modifiers, declKeyword) = withoutPrivate(modifiers: node.modifiers, declKeyword: node.funcKeyword)
+        return super.visit(node.withModifiers(modifiers).withFuncKeyword(declKeyword))
+    }
+
+    private func withoutPrivate(modifiers: ModifierListSyntax?,
+                                declKeyword: TokenSyntax) -> (ModifierListSyntax?, TokenSyntax) {
+        guard let modifiers else {
+            return (nil, declKeyword)
+        }
+        var filteredModifiers = [DeclModifierSyntax]()
+        var leadingTrivia = Trivia.zero
+        for modifier in modifiers {
+            let accumulatedLeadingTrivia = leadingTrivia + (modifier.leadingTrivia ?? .zero)
+            if modifier.name.tokenKind == .privateKeyword {
+                leadingTrivia = accumulatedLeadingTrivia
+            } else {
+                filteredModifiers.append(modifier.withLeadingTrivia(accumulatedLeadingTrivia))
+                leadingTrivia = .zero
+            }
+        }
+        let declKeyword = declKeyword.withLeadingTrivia(leadingTrivia + (declKeyword.leadingTrivia ?? .zero))
+        return (ModifierListSyntax(filteredModifiers), declKeyword)
+    }
+}
+
+private extension ClassDeclSyntax {
+    func hasParent(matching pattern: NSRegularExpression) -> Bool {
+        inheritanceClause?.inheritedTypeCollection.contains { type in
+            if let name = type.typeName.as(SimpleTypeIdentifierSyntax.self)?.name.text {
+                return pattern.numberOfMatches(in: name, range: name.fullNSRange) > 0
+            }
             return false
-        }
-        let range = superclass.fullNSRange
-        return regex.matches(in: superclass, options: [], range: range).isNotEmpty
+        } ?? false
     }
 
-    private func validateFunction(file: SwiftLintFile,
-                                  dictionary: SourceKittenDictionary) -> [StyleViolation] {
-        guard let kind = dictionary.declarationKind,
-            kind == .functionMethodInstance,
-            let name = dictionary.name, name.hasPrefix("test"),
-            dictionary.parameters.isEmpty else {
-                return []
-        }
-        return validateAccessControlLevel(file: file, dictionary: dictionary)
+    var isPrivate: Bool {
+        resultInPrivateProperty(modifiers: modifiers, attributes: attributes)
+    }
+}
+
+private extension FunctionDeclSyntax {
+    var isPrivate: Bool {
+        resultInPrivateProperty(modifiers: modifiers, attributes: attributes)
     }
 
-    private func validateAccessControlLevel(file: SwiftLintFile,
-                                            dictionary: SourceKittenDictionary) -> [StyleViolation] {
-        guard let acl = dictionary.accessibility, acl.isPrivate,
-            !dictionary.enclosedSwiftAttributes.contains(.objc)
-            else { return [] }
-        let offset = dictionary.offset ?? 0
-        return [StyleViolation(ruleDescription: Self.description,
-                               severity: configuration.severityConfiguration.severity,
-                               location: Location(file: file, byteOffset: offset),
-                               reason: configuration.message)]
+    var isTestMethod: Bool {
+        identifier.text.hasPrefix("test")
+            && signature.input.parameterList.isEmpty
+            && signature.output == nil
+            && !(modifiers?.hasStatic ?? false)
     }
+}
+
+private extension ModifierListSyntax {
+    var hasPrivate: Bool {
+        contains { $0.name.tokenKind == .privateKeyword }
+    }
+
+    var hasStatic: Bool {
+        contains { $0.name.tokenKind == .staticKeyword }
+    }
+}
+
+private func resultInPrivateProperty(modifiers: ModifierListSyntax?, attributes: AttributeListSyntax?) -> Bool {
+    guard let modifiers, modifiers.hasPrivate else {
+        return false
+    }
+    guard let attributes else {
+        return true
+    }
+    return !attributes.contains { $0.as(AttributeSyntax.self)?.attributeName.tokenKind == .contextualKeyword("objc") }
 }

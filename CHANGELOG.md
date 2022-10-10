@@ -2,6 +2,9 @@
 
 #### Breaking
 
+* SwiftLint now requires Swift 5.7 or higher to build.  
+  [JP Simard](https://github.com/jpsim)
+
 * Exclude `weak_delegate` rule from autocorrection due to behavioral changes
   leading to potential undefined behavior or bugs.  
   [SimplyDanny](https://github.com/SimplyDanny)
@@ -9,13 +12,28 @@
 
 * The `anyobject_protocol` rule is now deprecated and will be completely removed
   in a future release because it is now handled by the Swift compiler.  
-  [JP Simard](https://github.com/jpims)
+  [JP Simard](https://github.com/jpsim)
 
 #### Experimental
 
 * None.
 
 #### Enhancements
+
+* SwiftSyntax libraries have been updated from the previous 5.6 release and now
+  use the new parser written in Swift.
+  Swift 5.7+ features should now be parsed more accurately.
+  We've also measured an improvement in lint times of up to 15%.
+  This should also fix some deployment issues where the exact version of the
+  internal SwiftSyntax parser needed to be available.
+  If you notice any unexpected changes to lint results, please file an issue on
+  the SwiftLint issue tracker. We can look into it and if it's a SwiftSyntax
+  parser regression we can re-file it upstream.  
+  [JP Simard](https://github.com/jpsim)
+  [#4031](https://github.com/realm/SwiftLint/issues/4031)
+
+* Add ability to filter rules for `generate-docs` subcommand.  
+  [kattouf](https://github.com/kattouf)
 
 * Add new `excludes_trivial_init` configuration for `missing_docs` rule
   to exclude initializers without any parameters.  
@@ -24,29 +42,61 @@
 
 * Rewrite some rules with SwiftSyntax, fixing some false positives and catching
   more violations:
-  - `anyobject_protocol`
+  - `anonymous_argument_in_multiline_closure`
   - `array_init`
   - `block_based_kvo`
   - `class_delegate_protocol`
   - `closing_brace`
+  - `closure_parameter_position`
   - `computed_accessors_order`
+  - `contains_over_filter_count`
+  - `contains_over_range_nil_comparison`
+  - `deployment_target`
+  - `discouraged_object_literal`
   - `discouraged_optional_boolean`
+  - `duplicate_enum_cases`
+  - `dynamic_inline`
+  - `empty_collection_literal`
+  - `empty_enum_arguments`
+  - `empty_parameters`
+  - `empty_parentheses_with_trailing_closure`
   - `empty_string`
+  - `explicit_init`
+  - `fallthrough`
   - `flatmap_over_map_reduce`
   - `force_try`
   - `force_unwrapping`
+  - `generic_type_name`
+  - `ibinspectable_in_extension`
   - `implicit_getter`
+  - `inert_defer`
   - `large_tuple`
+  - `legacy_cggeometry_functions`
+  - `legacy_constant`
+  - `legacy_nsgeometry_functions`
   - `multiple_closures_with_trailing_closure`
+  - `no_extension_access_modifier`
+  - `no_fallthrough_only`
+  - `no_space_in_method_call`
+  - `nsobject_prefer_isequal`
+  - `private_action`
+  - `private_outlet`
+  - `private_unit_test`
+  - `protocol_property_accessors_order`
   - `redundant_nil_coalescing`
+  - `redundant_string_enum_value`
+  - `strong_iboutlet`
+  - `switch_case_on_newline`
   - `toggle_bool`
+  - `trailing_semicolon`
   - `unneeded_break_in_switch`
   - `unneeded_parentheses_in_closure_argument`
   - `unowned_variable_capture`
   - `untyped_error_in_catch`
   - `xctfail_message`  
-  [Marcelo Fabri](https://github.com/marcelofabri)  
-  [JP Simard](https://github.com/jpims)
+  [Marcelo Fabri](https://github.com/marcelofabri)
+  [SimplyDanny](https://github.com/SimplyDanny)
+  [JP Simard](https://github.com/jpsim)
   [#2915](https://github.com/realm/SwiftLint/issues/2915)
 
 * Add `accessibility_trait_for_button` rule to warn if a SwiftUI
@@ -55,11 +105,39 @@
   [Ryan Cole](https://github.com/rcole34)
 
 * Add methods from SE-0348 to `UnusedDeclarationRule`.  
-  [JP Simard](https://github.com/jpims)
+  [JP Simard](https://github.com/jpsim)
 
 * Include the configured `bind_identifier` in `self_binding` violation
   messages.  
-  [JP Simard](https://github.com/jpims)
+  [JP Simard](https://github.com/jpsim)
+
+* Add `library_content_provider` file type to `file_types_order` rule 
+  to allow `LibraryContentProvider` to be ordered independent from `main_type`.  
+  [dahlborn](https://github.com/dahlborn)
+
+* Add `test_parent_classes` option to `test_case_accessibility` rule, which
+  allows detection in subclasses of XCTestCase.  
+  [Martin Redington](https://github.com/mildm8nnered)
+  [#4200](https://github.com/realm/SwiftLint/issues/4200)
+
+* Add a new `if_let_shadowing` opt-in rule that triggers in Swift 5.7 when a
+  shadowing optional binding is created in an if- or guard-statement.  
+  [SimplyDanny](https://github.com/SimplyDanny)
+  [#4202](https://github.com/realm/SwiftLint/issues/4202)
+
+* Use SwiftSyntax instead of SourceKit to determine if a file has parser errors
+  before applying corrections. This speeds up corrections significantly when
+  none of the rules use SourceKit.  
+  [JP Simard](https://github.com/jpsim)
+
+* Add Swift Package Build Tool Plugin with support for Swift Packages
+  and Xcode projects.  
+  [Johannes Ebeling](https://github.com/technocidal)
+  [#3679](https://github.com/realm/SwiftLint/issues/3679)
+  [#3840](https://github.com/realm/SwiftLint/issues/3840)
+
+* Make `private_unit_test` rule correctable.  
+  [SimplyDanny](https://github.com/SimplyDanny)
 
 #### Bug Fixes
 
@@ -72,6 +150,27 @@
   [Till Hainbach](https://github.com/tillhainbach)
   [#3598](https://github.com/realm/SwiftLint/issues/3456)
   [#3611](https://github.com/realm/SwiftLint/issues/3611)
+
+* Fix false-positives related to the `willMove` lifecycle method in
+  `type_contents_order` rule.  
+  [SimplyDanny](https://github.com/SimplyDanny)
+  [#3478](https://github.com/realm/SwiftLint/issues/3478)
+
+* Do no longer autocorrect usage of `NSIntersectionRect` in `legacy_nsgeometry_functions`
+  rule.  
+  [SimplyDanny](https://github.com/SimplyDanny)
+  [#3703](https://github.com/realm/SwiftLint/issues/3703)
+
+* Fix Analyzer rules in Xcode 14.  
+  [SimplyDanny](https://github.com/SimplyDanny)
+  [#4208](https://github.com/realm/SwiftLint/issues/4208)
+
+* Add column for SourceKit usage to `rules` command.  
+  [JP Simard](https://github.com/jpsim)
+
+* Make `nsobject_prefer_isequal` rule work for nested `@objc` classes. Also consider
+  the `@objcMembers` annotation.  
+  [SimplyDanny](https://github.com/SimplyDanny)
 
 ## 0.49.1: Buanderie Principale
 
@@ -356,6 +455,15 @@ macOS < 12.
 * None.
 
 #### Enhancements
+
+* Add new option `only_enforce_before_trivial_lines` to
+  `vertical_whitespace_closing_braces` rule. It restricts
+  the rule to apply only before trivial lines (containing
+  only closing braces, brackets and parentheses). This
+  allows empty lines before non-trivial lines of code
+  (e.g. if-else-statements).  
+  [benjamin-kramer](https://github.com/benjamin-kramer)
+  [#3940](https://github.com/realm/SwiftLint/issues/3940)
 
 * Add type-checked analyzer rule version of `ArrayInitRule` named
   `TypesafeArrayInitRule` with identifier `typesafe_array_init` that

@@ -4,7 +4,7 @@ load(
     "swift_library",
 )
 load(
-    "@com_github_buildbuddy_io_rules_xcodeproj//xcodeproj:xcodeproj.bzl",
+    "@com_github_buildbuddy_io_rules_xcodeproj//xcodeproj:defs.bzl",
     "xcode_schemes",
     "xcodeproj",
 )
@@ -21,9 +21,7 @@ swift_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_jpsim_sourcekitten//:SourceKittenFramework",
-        "@com_github_keith_swift_syntax//:SwiftSyntax",
-        "@com_github_keith_swift_syntax//:SwiftSyntaxBuilder",
-        "@com_github_keith_swift_syntax//:SwiftSyntaxParser",
+        "@com_github_apple_swift_syntax//:optlibs",
         "@sourcekitten_com_github_jpsim_yams//:Yams",
     ] + select({
         "@platforms//os:linux": ["@com_github_krzyzanowskim_cryptoswift//:CryptoSwift"],
@@ -31,15 +29,24 @@ swift_library(
     }),
 )
 
-swift_binary(
-    name = "swiftlint",
+swift_library(
+    name = "swiftlint.library",
     srcs = glob(["Source/swiftlint/**/*.swift"]),
+    module_name = "swiftlint",
     visibility = ["//visibility:public"],
     deps = [
         ":SwiftLintFramework",
         "@com_github_johnsundell_collectionconcurrencykit//:CollectionConcurrencyKit",
         "@sourcekitten_com_github_apple_swift_argument_parser//:ArgumentParser",
         "@swiftlint_com_github_scottrhoyt_swifty_text_table//:SwiftyTextTable",
+    ],
+)
+
+swift_binary(
+    name = "swiftlint",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":swiftlint.library",
     ],
 )
 
@@ -92,34 +99,36 @@ shasum -a 256 "$${outs[0]}" > "$${outs[1]}"
 
 xcodeproj(
     name = "xcodeproj",
-    build_mode = "bazel",
     project_name = "SwiftLint",
     schemes = [
         xcode_schemes.scheme(
             name = "SwiftLint",
-            launch_action = xcode_schemes.launch_action("//:swiftlint"),
+            launch_action = xcode_schemes.launch_action(
+                "swiftlint",
+                args = [
+                    "--progress",
+                ],
+            ),
             test_action = xcode_schemes.test_action([
+                "//Tests:CLITests",
                 "//Tests:SwiftLintFrameworkTests",
+                "//Tests:GeneratedTests",
+                "//Tests:IntegrationTests",
                 "//Tests:ExtraRulesTests",
             ]),
         ),
     ],
     top_level_targets = [
         "//:swiftlint",
+        "//Tests:CLITests",
         "//Tests:SwiftLintFrameworkTests",
+        "//Tests:GeneratedTests",
+        "//Tests:IntegrationTests",
         "//Tests:ExtraRulesTests",
     ],
 )
 
 # Analyze
-
-filegroup(
-    name = "SourceAndTestFiles",
-    srcs = glob([
-        "Source/**",
-        "Tests/SwiftLintFrameworkTests/**",
-    ]),
-)
 
 sh_test(
     name = "analyze",
@@ -128,7 +137,6 @@ sh_test(
         "Package.resolved",
         "Package.swift",
         ":LintInputs",
-        ":SourceAndTestFiles",
         ":swiftlint",
     ],
 )

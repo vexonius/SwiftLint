@@ -63,29 +63,11 @@ public final class SwiftLintFile {
     func markAsTestFile() {
         isTestFile = true
     }
-
-    /// Returns whether or not the file contains any attributes that require the Foundation module.
-    func containsAttributesRequiringFoundation() -> Bool {
-        guard contents.contains("@objc") else {
-            return false
-        }
-
-        func containsAttributesRequiringFoundation(dict: SourceKittenDictionary) -> Bool {
-            let attributesRequiringFoundation = SwiftDeclarationAttributeKind.attributesRequiringFoundation
-            if !attributesRequiringFoundation.isDisjoint(with: dict.enclosedSwiftAttributes) {
-                return true
-            } else {
-                return dict.substructure.contains(where: containsAttributesRequiringFoundation)
-            }
-        }
-
-        return containsAttributesRequiringFoundation(dict: structureDictionary)
-    }
 }
 
 // MARK: - Hashable Conformance
 
-extension SwiftLintFile: Hashable {
+extension SwiftLintFile: Equatable, Hashable {
 
     public static func == (lhs: SwiftLintFile, rhs: SwiftLintFile) -> Bool {
         lhs.id == rhs.id

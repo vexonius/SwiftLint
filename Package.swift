@@ -3,38 +3,44 @@ import PackageDescription
 
 #if os(macOS)
 private let addCryptoSwift = false
-private let staticSwiftSyntax = true
 #else
 private let addCryptoSwift = true
-private let staticSwiftSyntax = false
 #endif
 
 let frameworkDependencies: [Target.Dependency] = [
     .product(name: "SourceKittenFramework", package: "SourceKitten"),
     .product(name: "SwiftSyntax", package: "SwiftSyntax"),
     .product(name: "SwiftSyntaxBuilder", package: "SwiftSyntax"),
-    .product(name: "SwiftSyntaxParser", package: "SwiftSyntax"),
+    .product(name: "SwiftParser", package: "SwiftSyntax"),
+    .product(name: "SwiftOperators", package: "SwiftSyntax"),
     "Yams",
 ]
 + (addCryptoSwift ? ["CryptoSwift"] : [])
-+ (staticSwiftSyntax ? ["lib_InternalSwiftSyntaxParser"] : [])
 
 let package = Package(
     name: "SwiftLint",
     platforms: [.macOS(.v12)],
     products: [
         .executable(name: "five-swiftlint", targets: ["swiftlint"]),
-        .library(name: "SwiftLintFramework", targets: ["SwiftLintFramework"])
+        .library(name: "SwiftLintFramework", targets: ["SwiftLintFramework"]),
+        .plugin(name: "SwiftLintPlugin", targets: ["SwiftLintPlugin"])
     ],
     dependencies: [
         .package(name: "swift-argument-parser", url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
-        .package(name: "SwiftSyntax", url: "https://github.com/apple/swift-syntax.git", .exact("0.50600.1")),
+        .package(name: "SwiftSyntax", url: "https://github.com/apple/swift-syntax.git", .revision("4f2e1537f39583f635d4a343128749d650157537")),
         .package(url: "https://github.com/jpsim/SourceKitten.git", from: "0.33.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.1"),
         .package(url: "https://github.com/scottrhoyt/SwiftyTextTable.git", from: "0.9.0"),
         .package(url: "https://github.com/JohnSundell/CollectionConcurrencyKit.git", from: "0.2.0")
-    ] + (addCryptoSwift ? [.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.5.1"))] : []),
+    ] + (addCryptoSwift ? [.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.6.0"))] : []),
     targets: [
+        .plugin(
+            name: "SwiftLintPlugin",
+            capability: .buildTool(),
+            dependencies: [
+                .target(name: "swiftlint")
+            ]
+        ),
         .executableTarget(
             name: "swiftlint",
             dependencies: [
@@ -44,26 +50,53 @@ let package = Package(
                 "SwiftyTextTable",
             ]
         ),
+        .testTarget(
+            name: "CLITests",
+            dependencies: [
+                "swiftlint"
+            ]
+        ),
         .target(
             name: "SwiftLintFramework",
-            dependencies: frameworkDependencies,
-            // Pass `-dead_strip_dylibs` to ignore the dynamic version of `lib_InternalSwiftSyntaxParser`
-            // that ships with SwiftSyntax because we want the static version from
-            // `StaticInternalSwiftSyntaxParser`.
-            linkerSettings: staticSwiftSyntax ? [.unsafeFlags(["-Xlinker", "-dead_strip_dylibs"])] : []
+            dependencies: frameworkDependencies
+        ),
+        .target(
+            name: "SwiftLintTestHelpers",
+            dependencies: [
+                "SwiftLintFramework"
+            ],
+            path: "Tests/SwiftLintTestHelpers"
         ),
         .testTarget(
             name: "SwiftLintFrameworkTests",
             dependencies: [
-                "SwiftLintFramework"
+                "SwiftLintFramework",
+                "SwiftLintTestHelpers"
             ],
             exclude: [
                 "Resources",
             ]
         ),
-    ] + (staticSwiftSyntax ? [.binaryTarget(
-            name: "lib_InternalSwiftSyntaxParser",
-            url: "https://github.com/keith/StaticInternalSwiftSyntaxParser/releases/download/5.6/lib_InternalSwiftSyntaxParser.xcframework.zip",
-            checksum: "88d748f76ec45880a8250438bd68e5d6ba716c8042f520998a438db87083ae9d"
-        )] : [])
+        .testTarget(
+            name: "GeneratedTests",
+            dependencies: [
+                "SwiftLintFramework",
+                "SwiftLintTestHelpers"
+            ]
+        ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "SwiftLintFramework",
+                "SwiftLintTestHelpers"
+            ]
+        ),
+        .testTarget(
+            name: "ExtraRulesTests",
+            dependencies: [
+                "SwiftLintFramework",
+                "SwiftLintTestHelpers"
+            ]
+        ),
+    ]
 )
