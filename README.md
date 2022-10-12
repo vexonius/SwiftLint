@@ -9,11 +9,11 @@ This is a forked version of SwiftLint tool enforcing swift code style preference
 1. Make sure you have [Homebrew](https://brew.sh/) installed
 2. Tap forked swiftlint repo
    ```
-   brew tap vexonius/five-swiftlint
+   brew tap fiveagency/five-swiftlint
    ```
 3. Install forked swiftlint
    ```
-   brew install vexonius/five-swiftlint
+   brew install fiveagency/five-swiftlint
    ```
 4. Run it inside swift source code directory using:
    ```
@@ -23,11 +23,11 @@ This is a forked version of SwiftLint tool enforcing swift code style preference
 ### Manual
 1. Clone this repo
    ```
-   git clone https://github.com/vexonius/SwiftLint
+   git clone https://github.com/fiveagency/Five-SwiftLint
    ```
 2. Open cloned directory
    ```
-   cd SwiftLint
+   cd Five-SwiftLint
    ```
 3. Build binary
    ```
@@ -62,7 +62,7 @@ If your CI/CI environment supports Homebrew, you can fetch five-swiftlint from F
 ``` bash
 #!/usr/bin/env bash
 
-brew tap vexonius/five-swiftlint
+brew tap fiveagency/five-swiftlint
 brew install five-swiftlint
 five-swiftlint lint --strict
 result=$?
@@ -93,7 +93,7 @@ As Xcode cloud doesn't run scripts in workspace/project directory, we have to pa
 #!/bin/sh
 export PATH="$PATH:/usr/local/bin"
 
-brew tap vexonius/five-swiftlint
+brew tap fiveagency/five-swiftlint
 brew install five-swiftlint
 five-swiftlint lint $CI_WORKSPACE --strict
 result=$?
