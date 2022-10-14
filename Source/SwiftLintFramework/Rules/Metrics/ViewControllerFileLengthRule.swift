@@ -1,6 +1,7 @@
 import SourceKittenFramework
 
 public struct ViewControllerFileLengthRule: ConfigurationProviderRule {
+
     public var configuration = FileLengthRuleConfiguration(warning: 400, error: 1000)
 
     public init() {}
