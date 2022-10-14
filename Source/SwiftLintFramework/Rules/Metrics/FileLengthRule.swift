@@ -35,16 +35,22 @@ public struct FileLengthRule: ConfigurationProviderRule {
             lineCount = file.lineCountWithoutComments()
         }
 
-        for parameter in configuration.severityConfiguration.params where lineCount > parameter.value {
-            let reason = "File should contain \(configuration.severityConfiguration.warning) lines or less" +
-                         (configuration.ignoreCommentOnlyLines ? " excluding comments and whitespaces" : "") +
-                         ": currently contains \(lineCount)"
-            return [StyleViolation(ruleDescription: Self.description,
-                                   severity: parameter.severity,
-                                   location: Location(file: file.path, line: file.lines.count),
-                                   reason: reason)]
-        }
+        let match = configuration
+            .severityConfiguration
+            .params
+            .first(where: { $0.value < lineCount })
 
-        return []
+        guard let match = match else { return [] }
+
+        let reason = "File should contain \(configuration.severityConfiguration.warning)" +
+        " lines or less" + (configuration.ignoreCommentOnlyLines ? " excluding comments and whitespaces" : "")
+        + ": currently contains \(lineCount)"
+
+        return [
+            StyleViolation(
+                ruleDescription: Self.description,
+                severity: match.severity,
+                location: Location(file: file.path, line: file.lines.count),
+                reason: reason)]
     }
 }
