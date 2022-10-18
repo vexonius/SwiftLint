@@ -56,4 +56,21 @@ extension SourceKittenDictionary {
         let body = file.stringView.nsString.substring(with: range)
         return String(body)
     }
+
+    func isViewController() -> Bool {
+        self
+            .substructure
+            .filter { $0.kind == SwiftDeclarationKind.class.rawValue }
+            .compactMap { inheritsViewController(inheritedTypes: $0.inheritedTypes) }
+            .reduce(false){ $0 || $1 }
+    }
+
+    func inheritsViewController(inheritedTypes: [String]) -> Bool {
+        let viewControllerPattern = "ViewController"
+
+        return inheritedTypes
+            .map { $0.contains(viewControllerPattern) }
+            .reduce(false) { $0 || $1 }
+    }
+    
 }

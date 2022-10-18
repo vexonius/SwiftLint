@@ -2,17 +2,17 @@ TEMPORARY_FOLDER?=/tmp/SwiftLint.dst
 PREFIX?=/usr/local
 BUILD_TOOL?=xcodebuild
 
-XCODEFLAGS=-scheme 'swiftlint' \
+XCODEFLAGS=-scheme 'five-swiftlint' \
 	DSTROOT=$(TEMPORARY_FOLDER) \
 	OTHER_LDFLAGS=-Wl,-headerpad_max_install_names
 
 SWIFT_BUILD_FLAGS=--configuration release -Xlinker -dead_strip
 UNAME=$(shell uname)
 
-SWIFTLINT_EXECUTABLE_X86=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch x86_64 --show-bin-path)/swiftlint
-SWIFTLINT_EXECUTABLE_ARM64=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch arm64 --show-bin-path)/swiftlint
+SWIFTLINT_EXECUTABLE_X86=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch x86_64 --show-bin-path)/five-swiftlint
+SWIFTLINT_EXECUTABLE_ARM64=$(shell swift build $(SWIFT_BUILD_FLAGS) --arch arm64 --show-bin-path)/five-swiftlint
 SWIFTLINT_EXECUTABLE_PARENT=.build/universal
-SWIFTLINT_EXECUTABLE=$(SWIFTLINT_EXECUTABLE_PARENT)/swiftlint
+SWIFTLINT_EXECUTABLE=$(SWIFTLINT_EXECUTABLE_PARENT)/five-swiftlint
 
 ARTIFACT_BUNDLE_PATH=$(TEMPORARY_FOLDER)/SwiftLintBinary.artifactbundle
 
@@ -51,13 +51,13 @@ test_tsan:
 	DYLD_INSERT_LIBRARIES=$(TSAN_LIB) $(TSAN_XCTEST) $(TSAN_TEST_BUNDLE)
 
 write_xcodebuild_log:
-	xcodebuild -scheme swiftlint clean build-for-testing -destination "platform=macOS" > xcodebuild.log
+	xcodebuild -scheme five-swiftlint clean build-for-testing -destination "platform=macOS" > xcodebuild.log
 
 analyze: write_xcodebuild_log
-	swift run -c release swiftlint analyze --strict --compiler-log-path xcodebuild.log
+	swift run -c release five-swiftlint analyze --strict --compiler-log-path xcodebuild.log
 
 analyze_autocorrect: write_xcodebuild_log
-	swift run -c release swiftlint analyze --autocorrect --compiler-log-path xcodebuild.log
+	swift run -c release five-swiftlint analyze --autocorrect --compiler-log-path xcodebuild.log
 
 clean:
 	rm -f "$(OUTPUT_PACKAGE)"
@@ -69,10 +69,10 @@ clean_xcode:
 	$(BUILD_TOOL) $(XCODEFLAGS) -configuration Test clean
 
 build_x86_64:
-	swift run $(SWIFT_BUILD_FLAGS) --arch x86_64 swiftlint version
+	swift run $(SWIFT_BUILD_FLAGS) --arch x86_64 five-swiftlint version
 
 build_arm64:
-	swift run $(SWIFT_BUILD_FLAGS) --arch arm64 swiftlint version
+	swift run $(SWIFT_BUILD_FLAGS) --arch arm64 five-swiftlint version
 
 build: clean build_x86_64 build_arm64
 	# Need to build for each arch independently to work around https://bugs.swift.org/browse/SR-15802
@@ -92,7 +92,7 @@ install: build
 
 uninstall:
 	rm -rf "$(FRAMEWORKS_FOLDER)/SwiftLintFramework.framework"
-	rm -f "$(BINARIES_FOLDER)/swiftlint"
+	rm -f "$(BINARIES_FOLDER)/five-swiftlint"
 
 installables: build
 	install -d "$(TEMPORARY_FOLDER)$(BINARIES_FOLDER)"
@@ -103,30 +103,30 @@ prefix_install: build_with_disable_sandbox
 	install "$(SWIFTLINT_EXECUTABLE)" "$(PREFIX)/bin/"
 
 portable_zip: installables
-	cp -f "$(TEMPORARY_FOLDER)$(BINARIES_FOLDER)/swiftlint" "$(TEMPORARY_FOLDER)"
+	cp -f "$(TEMPORARY_FOLDER)$(BINARIES_FOLDER)/five-swiftlint" "$(TEMPORARY_FOLDER)"
 	cp -f "$(LICENSE_PATH)" "$(TEMPORARY_FOLDER)"
-	(cd "$(TEMPORARY_FOLDER)"; zip -yr - "swiftlint" "LICENSE") > "./portable_swiftlint.zip"
+	(cd "$(TEMPORARY_FOLDER)"; zip -yr - "five-swiftlint" "LICENSE") > "./portable_swiftlint.zip"
 
 spm_artifactbundle_macos: installables
-	mkdir -p "$(ARTIFACT_BUNDLE_PATH)/swiftlint-$(VERSION_STRING)-macos/bin"
+	mkdir -p "$(ARTIFACT_BUNDLE_PATH)/five-swiftlint-$(VERSION_STRING)-macos/bin"
 	sed 's/__VERSION__/$(VERSION_STRING)/g' tools/info-macos.json.template > "$(ARTIFACT_BUNDLE_PATH)/info.json"
-	cp -f "$(SWIFTLINT_EXECUTABLE)" "$(ARTIFACT_BUNDLE_PATH)/swiftlint-$(VERSION_STRING)-macos/bin"
+	cp -f "$(SWIFTLINT_EXECUTABLE)" "$(ARTIFACT_BUNDLE_PATH)/five-swiftlint-$(VERSION_STRING)-macos/bin"
 	cp -f "$(LICENSE_PATH)" "$(ARTIFACT_BUNDLE_PATH)"
 	(cd "$(TEMPORARY_FOLDER)"; zip -yr - "SwiftLintBinary.artifactbundle") > "./SwiftLintBinary-macos.artifactbundle.zip"
 
 zip_linux: docker_image
 	$(eval TMP_FOLDER := $(shell mktemp -d))
-	docker run swiftlint cat /usr/bin/swiftlint > "$(TMP_FOLDER)/swiftlint"
-	chmod +x "$(TMP_FOLDER)/swiftlint"
+	docker run five-swiftlint cat /usr/bin/five-swiftlint > "$(TMP_FOLDER)/five-swiftlint"
+	chmod +x "$(TMP_FOLDER)/five-swiftlint"
 	cp -f "$(LICENSE_PATH)" "$(TMP_FOLDER)"
-	(cd "$(TMP_FOLDER)"; zip -yr - "swiftlint" "LICENSE") > "./swiftlint_linux.zip"
+	(cd "$(TMP_FOLDER)"; zip -yr - "five-swiftlint" "LICENSE") > "./swiftlint_linux.zip"
 
 zip_linux_release:
 	$(eval TMP_FOLDER := $(shell mktemp -d))
-	docker run "ghcr.io/realm/swiftlint:$(VERSION_STRING)" cat /usr/bin/swiftlint > "$(TMP_FOLDER)/swiftlint"
-	chmod +x "$(TMP_FOLDER)/swiftlint"
+	docker run "ghcr.io/realm/swiftlint:$(VERSION_STRING)" cat /usr/bin/five-swiftlint > "$(TMP_FOLDER)/five-swiftlint"
+	chmod +x "$(TMP_FOLDER)/five-swiftlint"
 	cp -f "$(LICENSE_PATH)" "$(TMP_FOLDER)"
-	(cd "$(TMP_FOLDER)"; zip -yr - "swiftlint" "LICENSE") > "./swiftlint_linux.zip"
+	(cd "$(TMP_FOLDER)"; zip -yr - "five-swiftlint" "LICENSE") > "./swiftlint_linux.zip"
 
 package: build
 	$(eval PACKAGE_ROOT := $(shell mktemp -d))
@@ -145,25 +145,25 @@ bazel_release:
 release: bazel_release package portable_zip spm_artifactbundle_macos zip_linux_release
 
 docker_image:
-	docker build --platform linux/amd64 --force-rm --tag swiftlint .
+	docker build --platform linux/amd64 --force-rm --tag five-swiftlint .
 
 docker_test:
-	docker run -v `pwd`:`pwd` -w `pwd` --name swiftlint --rm swift:5.6-focal swift test --parallel
+	docker run -v `pwd`:`pwd` -w `pwd` --name five-swiftlint --rm swift:5.6-focal swift test --parallel
 
 docker_htop:
-	docker run --platform linux/amd64 -it --rm --pid=container:swiftlint terencewestphal/htop || reset
+	docker run --platform linux/amd64 -it --rm --pid=container:five-swiftlint terencewestphal/htop || reset
 
 # https://irace.me/swift-profiling
 display_compilation_time:
 	$(BUILD_TOOL) $(XCODEFLAGS) OTHER_SWIFT_FLAGS="-Xfrontend -debug-time-function-bodies" clean build-for-testing | grep -E ^[1-9]{1}[0-9]*.[0-9]+ms | sort -n
 
 publish:
-	brew update && brew bump-formula-pr --tag=$(shell git describe --tags) --revision=$(shell git rev-parse HEAD) swiftlint
+	brew update && brew bump-formula-pr --tag=$(shell git describe --tags) --revision=$(shell git rev-parse HEAD) five-swiftlint
 	# Workaround for https://github.com/CocoaPods/CocoaPods/issues/11185
 	arch -arch x86_64 pod trunk push SwiftLint.podspec
 
 docs:
-	swift run swiftlint generate-docs
+	swift run five-swiftlint generate-docs
 	bundle install
 	bundle exec jazzy
 

@@ -21,7 +21,7 @@ let package = Package(
     name: "SwiftLint",
     platforms: [.macOS(.v12)],
     products: [
-        .executable(name: "swiftlint", targets: ["swiftlint"]),
+        .executable(name: "five-swiftlint", targets: ["five-swiftlint"]),
         .library(name: "SwiftLintFramework", targets: ["SwiftLintFramework"]),
         .plugin(name: "SwiftLintPlugin", targets: ["SwiftLintPlugin"])
     ],
@@ -38,11 +38,11 @@ let package = Package(
             name: "SwiftLintPlugin",
             capability: .buildTool(),
             dependencies: [
-                .target(name: "swiftlint")
+                .target(name: "five-swiftlint")
             ]
         ),
         .executableTarget(
-            name: "swiftlint",
+            name: "five-swiftlint",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "CollectionConcurrencyKit",
@@ -53,7 +53,7 @@ let package = Package(
         .testTarget(
             name: "CLITests",
             dependencies: [
-                "swiftlint"
+                "five-swiftlint"
             ]
         ),
         .target(
